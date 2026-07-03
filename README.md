@@ -32,6 +32,7 @@ The calculated profiles are combined with structural game states to dynamically 
 
 ## Project Pipeline
 
+```text
 Game Environment Initialization (API Call)
 │
 ▼
@@ -54,6 +55,7 @@ PPO Clipped Surrogate Update Loop
 │
 ▼
 Evaluate Adaptation Speed & Win Rate on Held-Out Unseen Opponents
+```
 
 
 ---
@@ -114,8 +116,11 @@ Supported environments pulled across interactive frameworks:
 
 ---
 
+### Fixed Project Structure Block
+```markdown
 ## Project Structure
 
+```text
 adaptive-rl/
 │
 ├── data/              # Saved game logs and strategy configurations
@@ -133,7 +138,7 @@ adaptive-rl/
 ├── results/           # Generated clustering graphs and metrics
 └── README.md          # Project documentation
 
-
+```
 ---
 
 ## Curriculum References
