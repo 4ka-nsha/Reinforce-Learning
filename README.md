@@ -30,7 +30,7 @@ Our goal is to automatically discover these hidden strategies and isolate them i
 
 The calculated profiles are combined with structural game states to dynamically shift the agent’s policy real-time.
 
-## Project Pipeline
+## Pipeline
 
 ```text
 Game Environment Initialization (API Call)
@@ -116,10 +116,8 @@ Supported environments pulled across interactive frameworks:
 
 ---
 
-### Fixed Project Structure Block
+###P roject Structure
 ```markdown
-## Project Structure
-
 ```text
 adaptive-rl/
 │
