@@ -116,9 +116,8 @@ Supported environments pulled across interactive frameworks:
 
 ---
 
-###P roject Structure
+### Project Structure
 ```markdown
-```text
 adaptive-rl/
 │
 ├── data/              # Saved game logs and strategy configurations
