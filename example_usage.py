@@ -44,6 +44,18 @@ def main():
     obs, info = env.reset()
     print(f"stage={info['stage']:<12} opponent={info['opponent']:<10} obs.shape={obs.shape}")
 
+    done = False
+    episode_return = 0.0
+    while not done:
+        legal_actions = np.flatnonzero(env.action_masks())
+        action = int(np.random.choice(legal_actions))
+
+        obs, reward, terminated, truncated, info = env.step(action)
+        episode_return += reward
+        done = terminated or truncated
+
+    print(f"episode finished, agent return={episode_return:+.1f}")
+
 
 if __name__ == "__main__":
     main()

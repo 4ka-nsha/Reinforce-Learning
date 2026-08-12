@@ -1,7 +1,7 @@
 from dataclasses import field
 from typing import Any
 import random
-from ppo_agent.model import DLLayer
+from ppo_agent.model import PPOActorCritic
 
 class ModelSnapshot:
     def __init__(self, max_pool_size):
@@ -22,7 +22,7 @@ class ModelSnapshot:
     
     def get_self_play_opponent(self, architecture_args):
         weights = random.choice(self.pool)
-        opponent_model = DLLayer(*architecture_args)
+        opponent_model = PPOActorCritic(*architecture_args)
         opponent_model.load_state_dict(weights)
         opponent_model.eval()   
         return opponent_model

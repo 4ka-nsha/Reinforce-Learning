@@ -130,6 +130,7 @@ class AdaptiveOpponentEnv(gym.Env):
         self._opponent_bot = self.opponent_pool.sample(self.opponent_tiers, self._rng)
         self._opponent_bot.reset()
 
+        self._last_opponent_action = None
         self._play_until_agent_turn()
         self._refresh_mask_cache()
 
@@ -185,6 +186,7 @@ class AdaptiveOpponentEnv(gym.Env):
                 self._state.apply_action(int(fast_weighted_choice(self._rng, actions, probs)))
             else:
                 opp_action = self._opponent_bot.act(self._state, self._state.current_player())
+                self._last_opponent_action = opp_action
                 self._state.apply_action(opp_action)
 
     def _raw_tensor(self):
@@ -228,4 +230,5 @@ class AdaptiveOpponentEnv(gym.Env):
             "opponent": self._opponent_bot.name if self._opponent_bot else None,
             "agent_player_id": self._agent_player_id,
             "action_mask": self._cached_mask.copy(),
+            "last_opponent_action": self._last_opponent_action,
         }

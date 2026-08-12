@@ -20,7 +20,6 @@ import numpy as np
 
 from models.baselines import ALL_BOTS, OpponentBot
 
-
 class OpponentPool:
     def __init__(self, registry: Optional[Dict[str, type]] = None, seed: Optional[int] = None):
         registry = registry if registry is not None else ALL_BOTS
