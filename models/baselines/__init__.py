@@ -11,6 +11,7 @@ from .bots import (
     FIXED_STRATEGY_BOTS,
     ALL_BOTS,
 )
+from .self_play_bot import SelfPlayBot
 
 __all__ = [
     "OpponentBot",
@@ -26,4 +27,5 @@ __all__ = [
     "RULE_BASED_BOTS",
     "FIXED_STRATEGY_BOTS",
     "ALL_BOTS",
+    "SelfPlayBot",
 ]

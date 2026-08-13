@@ -12,15 +12,33 @@ class Memory:
     rewards: list[Any] = field(default_factory=list)
     game_ended: list[Any] = field(default_factory=list)
     
-    def store(self, states, z_opp, actions_taken, actions_prob, action_mask, value, rewards, game_ended):
+    # Fields required for Joint Profiler training
+    history_tensors: list[Any] = field(default_factory=list)
+    opponent_actions_taken: list[Any] = field(default_factory=list)
+    
+    def store(
+        self, 
+        states, 
+        z_opp, 
+        actions_taken, 
+        actions_prob, 
+        action_mask, 
+        value, 
+        reward, 
+        game_ended, 
+        history_tensor,
+        opponent_action
+    ):
         self.states.append(states)
         self.z_opp.append(z_opp)
         self.actions_taken.append(actions_taken)
         self.actions_prob.append(actions_prob)
         self.action_masks.append(action_mask)
         self.value.append(value)
-        self.rewards.append(rewards)
+        self.rewards.append(reward)
         self.game_ended.append(game_ended)
+        self.history_tensors.append(history_tensor)
+        self.opponent_actions_taken.append(opponent_action)
         
     def clear(self):
         self.states.clear()
@@ -31,3 +49,5 @@ class Memory:
         self.value.clear()
         self.rewards.clear()
         self.game_ended.clear()
+        self.history_tensors.clear()
+        self.opponent_actions_taken.clear()

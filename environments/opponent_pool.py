@@ -36,7 +36,7 @@ class OpponentPool:
         if not tiers:
             return self.names
         tier_set = set(tiers)
-        return [name for name, bot in self._instances.items() if bot.archetype in tier_set]
+        return [name for name, bot in self._instances.items() if bot.archetype in tier_set or name in tier_set]
 
     def get(self, name: str) -> OpponentBot:
         return self._instances[name]

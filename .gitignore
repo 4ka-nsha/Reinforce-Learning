@@ -3,3 +3,6 @@ problem.md
 idea.md
 report.md
 structure.md
+results/**
+__pycache__/
+*.py[cod]
