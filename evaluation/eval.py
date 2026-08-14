@@ -22,9 +22,10 @@ def run_evaluation():
     opponent_pool = OpponentPool(seed=100)
 
     # Initialize policy and profiler models
-    # State = 126, Latent = 32 -> input size = 158
-    policy = PPOActorCritic(input_size=158, action_dim=7, hidden_dim=128)
-    profiler = OpponentProfiler(input_dim=7, z_dim=32, hidden_dim=64)
+    input_size = curriculum.max_observation_dim + 32
+    action_dim = curriculum.max_action_dim
+    policy = PPOActorCritic(input_size=input_size, action_dim=action_dim, hidden_dim=128)
+    profiler = OpponentProfiler(input_dim=action_dim, z_dim=32, hidden_dim=64)
 
     checkpoint_path = args.checkpoint or f"models/checkpoints/joint_{args.stage}_model.pt"
     if os.path.exists(checkpoint_path):
@@ -36,7 +37,7 @@ def run_evaluation():
     policy.eval()
     profiler.eval()
 
-    tracker = TrajectoryTracker(window_size=10, feature_dim=7)
+    tracker = TrajectoryTracker(window_size=10, feature_dim=action_dim)
     visualizer = LatentVisualizer()
 
     # Held-out testing bots
@@ -75,10 +76,10 @@ def run_evaluation():
             while not done:
                 opp_action = info["last_opponent_action"]
                 if opp_action is not None:
-                    action_one_hot = np.zeros(7, dtype=np.float32)
+                    action_one_hot = np.zeros(action_dim, dtype=np.float32)
                     action_one_hot[opp_action] = 1.0
                 else:
-                    action_one_hot = np.zeros(7, dtype=np.float32)
+                    action_one_hot = np.zeros(action_dim, dtype=np.float32)
                     
                 tracker.update(action_one_hot)
                 history_tensor = tracker.get_history_tensor()

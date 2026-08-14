@@ -1,18 +1,37 @@
 import torch
 
-def compute_advantages(rewards, values, game_ended, gamma=0.99):
-    n = len(rewards)
-    advantages = []
-    for i in range(n-1, -1, -1):
-        next_value = values[i+1] if i+1 < n else 0
-        surprise = (rewards[i] + gamma * next_value * (1 - game_ended[i])) - values[i]
-        advantages.append(surprise)
+def compute_advantages(rewards, values, game_ended, next_value, gamma=0.99, gae_lambda=0.95):
+    """
+    Computes Generalized Advantage Estimation (GAE) and returns targets.
+    
+    Args:
+        rewards (list): list of episode rewards, length T
+        values (list): state value estimates, length T
+        game_ended (list): terminal flags, length T
+        next_value (float): value function estimate of the state following the final step
+        gamma (float): temporal discount factor
+        gae_lambda (float): GAE factor (lambda)
+    """
+    T = len(rewards)
+    advantages = torch.zeros(T, dtype=torch.float32)
+    last_gae_lam = 0.0
+    
+    for t in reversed(range(T)):
+        if t == T - 1:
+            next_non_terminal = 1.0 - float(game_ended[t])
+            next_val = next_value
+        else:
+            next_non_terminal = 1.0 - float(game_ended[t])
+            next_val = values[t + 1]
+            
+        # Delta TD residual
+        delta = rewards[t] + gamma * next_val * next_non_terminal - values[t]
         
-    advantages.reverse()  
-    advantages = torch.tensor(advantages, dtype=torch.float32)
+        # GAE accumulation
+        advantages[t] = last_gae_lam = delta + gamma * gae_lambda * next_non_terminal * last_gae_lam
+        
     values_tensor = torch.tensor(values, dtype=torch.float32)
     returns = advantages + values_tensor
-        
     return advantages, returns
 
 
@@ -41,8 +60,8 @@ def ppo_update(
     history_tensors = torch.cat(memory.history_tensors, dim=0)
     opponent_actions_taken = torch.tensor(memory.opponent_actions_taken, dtype=torch.long)
     
-    # Normalize advantages
-    advantages_ = (advantages - torch.mean(advantages, -1, keepdim=True)) / (torch.std(advantages, -1, keepdim=True) + 1e-10)
+    # Normalize advantages using standard scalar reduce
+    advantages_ = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
     
     for run in range(epochs):
         optimizer.zero_grad()

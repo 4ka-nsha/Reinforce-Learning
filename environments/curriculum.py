@@ -39,6 +39,7 @@ class CurriculumStage:
 
 
 DEFAULT_STAGES: List[CurriculumStage] = [
+    CurriculumStage("tic_tac_toe", "tic_tac_toe"),
     CurriculumStage("kuhn_poker", "kuhn_poker"),
     CurriculumStage("leduc_poker", "leduc_poker"),
     CurriculumStage("connect_four", "connect_four"),

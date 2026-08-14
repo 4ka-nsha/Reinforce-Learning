@@ -6,3 +6,4 @@ structure.md
 results/**
 __pycache__/
 *.py[cod]
+models/checkpoints

@@ -19,7 +19,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--episodes", type=int, default=30, help="Total episodes to train")
     parser.add_argument("--rollout_size", type=int, default=128, help="PPO rollout steps per update batch")
-    parser.add_argument("--stage", type=str, default="kuhn_poker", choices=["kuhn_poker", "leduc_poker", "connect_four"], help="Active curriculum stage")
+    parser.add_argument("--stage", type=str, default="tic_tac_toe", choices=["tic_tac_toe", "kuhn_poker", "leduc_poker", "connect_four"], help="Active curriculum stage")
     args = parser.parse_args()
 
     # 1. Instantiate the curriculum and opponent pool
@@ -37,16 +37,16 @@ def main():
     )
 
     # 3. Initialize models and tracking utilities
-    # Input size: 126 state dims + 32 latent dims = 158
-    # Action dimension: 7
-    policy = PPOActorCritic(input_size=158, action_dim=7, hidden_dim=128)
-    profiler = OpponentProfiler(input_dim=7, z_dim=32, hidden_dim=64)
+    input_size = curriculum.max_observation_dim + 32
+    action_dim = curriculum.max_action_dim
+    policy = PPOActorCritic(input_size=input_size, action_dim=action_dim, hidden_dim=128)
+    profiler = OpponentProfiler(input_dim=action_dim, z_dim=32, hidden_dim=64)
     
     # Combined optimizer to train both networks together
     optimizer = optim.Adam(list(policy.parameters()) + list(profiler.parameters()), lr=0.001)
     
     bfr = Memory()
-    tracker = TrajectoryTracker(window_size=10, feature_dim=7)
+    tracker = TrajectoryTracker(window_size=10, feature_dim=action_dim)
     snap = ModelSnapshot(max_pool_size=10)
 
     print(f"Starting joint adaptive training on stage: {args.stage}")
@@ -62,7 +62,7 @@ def main():
         if opponent_type == "self_play":
             print(f"[Episode {ep+1}] Self-Play Matchmaking triggered.")
             # Retrieve past policy checkpoint
-            past_policy = snap.get_self_play_opponent((158, 7))
+            past_policy = snap.get_self_play_opponent((input_size, action_dim))
             # Wrap as a bot
             sp_bot = SelfPlayBot(
                 policy_model=past_policy,
@@ -87,10 +87,10 @@ def main():
             # Check opponent's action at previous step (if any) to update profile tracker
             opp_action = info["last_opponent_action"]
             if opp_action is not None:
-                action_one_hot = np.zeros(7, dtype=np.float32)
+                action_one_hot = np.zeros(action_dim, dtype=np.float32)
                 action_one_hot[opp_action] = 1.0
             else:
-                action_one_hot = np.zeros(7, dtype=np.float32)
+                action_one_hot = np.zeros(action_dim, dtype=np.float32)
                 
             tracker.update(action_one_hot)
             history_tensor = tracker.get_history_tensor()
@@ -121,7 +121,7 @@ def main():
 
             # Store actual opponent action response (target for auxiliary loss classification)
             next_opp_action = next_info["last_opponent_action"]
-            opp_target = next_opp_action if next_opp_action is not None else -1
+            opp_target = next_opp_action if (next_opp_action is not None and not done) else -1
 
             bfr.store(
                 states=obs_t,
@@ -139,9 +139,13 @@ def main():
             obs = next_obs
             info = next_info
 
-            # Execute Joint PPO and Profiler parameter updates
             if len(bfr.states) >= args.rollout_size:
-                advantages, returns = compute_advantages(bfr.rewards, bfr.value, bfr.game_ended)
+                # Compute bootstrap value of the next state
+                obs_t = torch.tensor(obs, dtype=torch.float32)
+                with torch.no_grad():
+                    next_val, _ = policy(obs_t, z_opp, mask_t)
+                    next_value = next_val.item() if not done else 0.0
+                advantages, returns = compute_advantages(bfr.rewards, bfr.value, bfr.game_ended, next_value)
                 ppo_update(
                     policy=policy,
                     profiler=profiler,
