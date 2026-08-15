@@ -20,6 +20,7 @@ def main():
     parser.add_argument("--episodes", type=int, default=30, help="Total episodes to train")
     parser.add_argument("--rollout_size", type=int, default=128, help="PPO rollout steps per update batch")
     parser.add_argument("--stage", type=str, default="tic_tac_toe", choices=["tic_tac_toe", "kuhn_poker", "leduc_poker", "connect_four"], help="Active curriculum stage")
+    parser.add_argument("--lambda_aux", type=float, default=0.5, help="Weight of the profiler's auxiliary next-action loss")
     args = parser.parse_args()
 
     # 1. Instantiate the curriculum and opponent pool
@@ -154,7 +155,7 @@ def main():
                     advantages=advantages,
                     returns=returns,
                     epochs=4,
-                    lambda_aux=0.5
+                    lambda_aux=args.lambda_aux
                 )
                 bfr.clear()
                 
