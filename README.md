@@ -91,7 +91,6 @@ t-SNE/PCA cluster visualizer (`models/profiler/analysis.py`).
 
 ## Project Structure
 
-\`\`\`
 Reinforce-Learning/
 │
 ├── environments/       # Curriculum ladder, OpenSpiel env wrapping, opponent pool
@@ -103,7 +102,6 @@ Reinforce-Learning/
 ├── tests/               # pytest suite
 ├── example_usage.py
 └── requirements.txt
-\`\`\`
 
 ## Technology Stack
 
