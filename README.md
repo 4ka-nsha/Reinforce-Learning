@@ -1,146 +1,121 @@
-# Adaptive Reinforcement Learning Agent via Theory of Mind Profiling
+# Adaptive Reinforcement Learning Agent via Theory-of-Mind Opponent Profiling
 
-An advanced Deep Reinforcement Learning paradigm featuring an agent that dynamically discovers, clusters, and adapts to unseen opponent strategies in competitive environments. Inspired by ToMnet principles, the architecture isolates tactical environmental states from latent behavioral profiling.
-
----
+A three-module framework for opponent-conditioned policy learning in competitive,
+imperfect-information games. A GRU-based Opponent Profiler compresses an opponent's recent action
+history into a latent embedding `z_opp`, which conditions a PPO actor-critic's policy and value
+networks alongside the raw game state.
 
 ## Overview
 
-Modern reinforcement learning agents excel in stationary environments but display severe fragility when exposed to dynamic or unseen opponent strategies. Traditional counter-strategies often rely on hardcoded rule adjustments or massive self-play loops that overfit to specific strategic trajectories.
-
-This project aims to automate dynamic adaptation.
-
-Instead of treating opponent behavior as an unobservable environment element, we leverage an isolated Recurrent Opponent Profiler that maps opponent histories into a continuous embedding space, serving as a real-time diagnostic and strategic adjustment vector for a Proximal Policy Optimization (PPO) core.
-
-The project investigates whether latent descriptions of enemy playstyles can explicitly guide downstream action-selection loops to achieve zero-shot generalization against completely novel strategies.
-
----
-
-## Motivation
-
-An RL agent trained on a game like Rock-Paper-Scissors with mixed strategies or Connect Four consistently relies on:
-* Over-aggressive opening sequences
-* Reactive tit-for-tat patterns
-* Periodic structural trap placements
-* Exploitative shifts after a loss
-
-Usually, identifying these patterns requires manually updating reward weights or tracking statistical rule counts. 
-
-Our goal is to automatically discover these hidden strategies and isolate them into functional latent profiles, adapting behavior mid-match without modifying core networks.
-
-The calculated profiles are combined with structural game states to dynamically shift the agent’s policy real-time.
+Standard single-policy reinforcement learning agents perform well in stationary environments but
+degrade against opponents whose strategies differ from those seen during training, because the
+policy has no explicit representation of *who it is currently playing against*. This project
+tests whether giving a PPO agent an explicit, learned opponent embedding improves adaptation and
+generalization in competitive, imperfect-information games, relative to a PPO agent without one.
 
 ## Pipeline
 
-```text
-Game Environment Initialization (API Call)
+\`\`\`
+OpenSpiel Game Load (curriculum stage)
+        │
+        ▼
+Sample Opponent (rule-based / fixed-strategy bot pool, or self-play checkpoint)
+        │
+        ▼
+Stream Dual Observations (game state & rolling opponent-action history)
+        │
+        ▼
+Extract Latent Profile Vector (z_opp via GRU profiler, L2-normalized)
+        │
+        ▼
+Condition Policy & Value Networks with z_opp (concatenated input)
+        │
+        ▼
+Joint PPO Update (clipped surrogate + profiler auxiliary next-action loss, GAE-λ advantages)
+        │
+        ▼
+Evaluate: win rate & t-SNE cluster separation vs. held-out opponents
+\`\`\`
+
+## Modules
+
+- **Environment & Curriculum** — `environments/`. OpenSpiel-backed, four-stage curriculum
+  (Tic-Tac-Toe → Kuhn Poker → Leduc Poker → Connect Four), seven-bot opponent pool, rotating
+  self-play checkpoint pool.
+- **Opponent Profiler** — `models/profiler/`. Single-layer GRU encoder over a rolling window of
+  the opponent's last 10 one-hot actions, producing a 32-dim L2-normalized `z_opp`, trained with a
+  next-action auxiliary loss and validated by t-SNE/PCA cluster visualization.
+- **PPO Policy & Training Loop** — `ppo_agent/`. A game-agnostic actor-critic MLP conditioned on
+  `[game state, z_opp]`, trained with a clipped-surrogate objective and GAE-λ advantage estimation,
+  jointly optimized with the profiler's auxiliary loss.
+
+## Curriculum & Opponent Pool
+
+Four sequential, two-player OpenSpiel games, in order: **Tic-Tac-Toe → Kuhn Poker → Leduc Poker →
+Connect Four**. Network dimensions (`max_observation_dim`, `max_action_dim`) are derived once from
+the curriculum rather than hardcoded, so one set of network shapes works across all four games.
+
+Seven opponent archetypes across two tiers:
+
+| Tier | Bots |
+|---|---|
+| Rule-based | RandomBot, GreedyBot |
+| Fixed-strategy / personality | AggressiveBot, DefensiveBot, MirrorBot, PeriodicBot, ExploitativeBot |
+
+## Results
+
+A trained joint checkpoint has been evaluated against all seven opponent archetypes at every
+curriculum stage (50 games/bot, 75 for Connect Four).
+
+| Stage | Best matchup | Worst matchup | Cluster separation |
+|---|---|---|---|
+| Tic-Tac-Toe | MirrorBot 60.0% | DefensiveBot 12.0% | Rich structure, not archetype-pure |
+| Kuhn Poker | PeriodicBot 64.0% | MirrorBot 46.0% | Collapses to ~3 points (structural) |
+| Leduc Poker | DefensiveBot 66.0% | AggressiveBot 38.0% | ExploitativeBot separates; other 6 don't |
+| Connect Four | MirrorBot 80.0% | DefensiveBot 6.7% | Rich structure, not archetype-pure |
+
+Across all four stages, the agent plays competently against reactive/non-adaptive opponents
+(RandomBot, MirrorBot, GreedyBot) and consistently struggles against opponents built around active
+counterplay — DefensiveBot and ExploitativeBot — most sharply in Connect Four. The profiler's
+t-SNE cluster-separation exit criterion (one clean cluster per archetype) is not met at any stage
+yet: Kuhn Poker's short episodes collapse the latent space almost entirely; Leduc Poker separates
+one archetype from the rest but not all seven; Tic-Tac-Toe and Connect Four produce dense spatial
+clustering that doesn't track opponent identity as cleanly as it tracks something else (likely
+game-state/trajectory structure).
+
+## Evaluation
+
+`evaluation/eval.py` plays `--games_per_bot` (default 50) evaluation games per opponent archetype
+against a saved checkpoint, reporting win rate per archetype and feeding `z_opp` history into a
+t-SNE/PCA cluster visualizer (`models/profiler/analysis.py`).
+
+## Project Structure
+
+\`\`\`
+Reinforce-Learning/
 │
-▼
-Expose Agent to Diverse Opponent Pool (Rule-Based ➔ Fixed Bots ➔ Self-Play)
-│
-▼
-Stream Dual Observations (Game States & Historic Opponent Actions)
-│
-▼
-Extract Latent Profile Vector (z_opp via GRU/LSTM Profiler)
-│
-▼
-Predict Opponent Actions & Group Visual Clustered Profiles (t-SNE / PCA)
-│
-▼
-Condition Policy & Value Networks with z_opp
-│
-▼
-PPO Clipped Surrogate Update Loop
-│
-▼
-Evaluate Adaptation Speed & Win Rate on Held-Out Unseen Opponents
-```
-
-
----
-
-## Objectives
-
-* **Train** baseline rule competency against classic procedural frameworks.
-* **Isolate** opponent action histories to build distinct behavioral features.
-* **Represent** strategy samples using fixed-size latent embeddings.
-* **Discover** structural clusters of semantically grouped opponent profiles.
-* **Automatically adapt** policy weight responses without fine-tuning networks inline.
-* **Evaluate** if structural behavioral profiling yields zero-shot generalizations on unseen opponents.
-
----
-
-## Features
-
-### Automated Strategy Profiling
-Detect recurring opponent behavioral tendencies without manually tagging playstyle types.
-
-### Explainable Theory of Mind
-Convert opaque structural play dynamics into visible spatial clusters grouping identical tactical variations together.
-
-### Targeted Dataset Expansion
-Track agent capabilities across an incremental curriculum of structural complexity (from simple games to highly complex multi-agent environments).
-
----
-
-## Datasets & Environments
-
-Supported environments pulled across interactive frameworks:
-* **PettingZoo** (Multi-agent baseline tasks)
-* **OpenSpiel** (Game-theoretic analysis environments)
-* **OpenAI Gym** / **Gymnasium**
-* **Kaggle Environments**
-
----
+├── environments/       # Curriculum ladder, OpenSpiel env wrapping, opponent pool
+├── models/
+│   ├── baselines/       # Rule-based & fixed-strategy bot implementations
+│   └── profiler/        # GRU opponent profiler + t-SNE/PCA cluster analysis
+├── ppo_agent/           # PPO actor-critic, buffer, training loop, self-play snapshots
+├── evaluation/          # Win-rate evaluation vs. held-out bots + latent visualization
+├── tests/               # pytest suite
+├── example_usage.py
+└── requirements.txt
+\`\`\`
 
 ## Technology Stack
 
-### Languages
-* Python
+- **Language:** Python
+- **RL / Deep Learning:** PyTorch, custom PPO core
+- **Environment framework:** OpenSpiel
+- **Analysis / visualization:** scikit-learn (t-SNE / PCA), Matplotlib, Seaborn
+- **Testing:** pytest
 
-### Deep Learning & Reinforcement Learning
-* PyTorch
-* Stable-Baselines3 (Custom PPO Core)
-* TensorBoard
+## References
 
-### Environment Frameworks
-* PettingZoo
-* OpenSpiel
-
-### Mathematical Analysis & Visualization
-* scikit-learn (t-SNE / K-Means Clustering)
-* NumPy
-* Matplotlib
-* Seaborn
-
----
-
-### Project Structure
-```markdown
-adaptive-rl/
-│
-├── data/              # Saved game logs and strategy configurations
-├── notebooks/         # EDA and strategy cluster visualizations
-├── models/            # Model weights and network checkpoints
-│   ├── profiler/      # GRU / LSTM Opponent Profilers
-│   ├── policy/        # PPO Actor-Critic weights
-│   └── baselines/     # Fixed strategy bot parameters
-│
-├── profiling/         # Sequential history sequence encoding scripts
-├── ppo_agent/         # Custom PPO adaptation and rollout memory code
-├── environments/      # Environment connection wraps and APIs
-├── evaluation/        # Validation scripts checking win rates vs unseen bots
-├── utils/             # Metric trackers and plotting tools
-├── results/           # Generated clustering graphs and metrics
-└── README.md          # Project documentation
-
-```
----
-
-## Curriculum References
-
-Our training pipelines and architecture choices match current academic deep RL guidelines:
-* **Foundational RL Formulations:** Stanford CS234 (Reinforcement Learning)
-* **Deep Architectural Scaling:** Stanford CS224r (Deep Reinforcement Learning)
-* **Evolutionary Strategy Mapping:** Deep Learning Papers Reading Roadmap Repo
+- Foundational RL Formulations: Stanford CS234 (Reinforcement Learning)
+- Deep Architectural Scaling: Stanford CS224R (Deep Reinforcement Learning)
+- Machine Theory of Mind (Rabinowitz et al., 2018); Proximal Policy Optimization (Schulman et al.,
+  2017); Generalized Advantage Estimation (Schulman et al., 2015); OpenSpiel (Lanctot et al., 2019)
