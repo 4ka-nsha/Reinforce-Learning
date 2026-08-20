@@ -25,6 +25,25 @@ need a simultaneous-move code path added - deliberately not built now, to
 avoid adding real complexity for a game that hasn't been chosen yet.
 """
 
+# from dataclasses import dataclass, field
+# import pyspiel
+
+# @dataclass(frozen=True)
+# class CurriculumStage:
+#     name: str
+#     game_name: str
+#     game_params: dict = field(default_factory=dict)
+
+# DEFAULT_STAGES=[
+#     CurriculumStage("tic_tac_toe"), 
+#     CurriculumStage("kuhn_poker", "kuhn_poker"),
+#     CurriculumStage("leduc_poker", "leduc_poker"),
+#     CurriculumStage("connect_four", "connect_four")
+# ]
+
+# class Curriculum:
+
+
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Union
 
