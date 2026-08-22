@@ -36,28 +36,28 @@ Training proceeds through a three-stage difficulty ladder: **Kuhn Poker → Ledu
 ```
 Reinforce-Learning/
 ├── environments/
-│   ├── curriculum.py       # Curriculum ladder; derives max_action_dim / max_observation_dim
-│   └── env_wrapper.py      # AdaptiveOpponentEnv — the Gymnasium interface
+│   ├── curriculum.py              # Curriculum ladder; derives max_action_dim / max_observation_dim
+│   └── env_wrapper.py             # AdaptiveOpponentEnv — the Gymnasium interface
 ├── models/
 │   ├── baselines/
-│   │   ├── bots.py         # Seven-bot opponent pool
-│   │   └── base_bot.py     # find_winning_action, opponent_has_winning_reply
+│   │   ├── bots.py                # Seven-bot opponent pool
+│   │   └── base_bot.py            # find_winning_action, opponent_has_winning_reply
 │   ├── profiler/
-│   │   ├── models.py       # OpponentProfiler (GRU encoder + auxiliary head)
-│   │   ├── tracker.py      # TrajectoryTracker (rolling opponent-action window)
-│   │   └── analysis.py     # LatentVisualizer (t-SNE / PCA cluster plots)
-│   └── checkpoints/        # joint_<stage>_model.pt (gitignored)
+│   │   ├── models.py              # OpponentProfiler (GRU encoder + auxiliary head)
+│   │   ├── tracker.py             # TrajectoryTracker (rolling opponent-action window)
+│   │   └── analysis.py            # LatentVisualizer (t-SNE / PCA cluster plots)
+│   └── checkpoints/               # joint_<stage>_model.pt (gitignored)
 ├── ppo_agent/
-│   ├── model.py             # PPOActorCritic
-│   ├── buffer.py            # Rollout buffer
-│   ├── ppo.py                # GAE-λ advantages + clipped-surrogate update
-│   ├── model_snapshot.py     # Rotating self-play checkpoint pool
-│   └── train.py               # Training entry point
+│   ├── model.py                   # PPOActorCritic
+│   ├── buffer.py                  # Rollout buffer
+│   ├── ppo.py                     # GAE-λ advantages + clipped-surrogate update
+│   ├── model_snapshot.py          # Rotating self-play checkpoint pool
+│   └── train.py                   # Training entry point
 ├── evaluation/
-│   └── eval.py                 # Per-archetype win rate + cluster evaluation
+│   └── eval.py                    # Per-archetype win rate + cluster evaluation
 ├── tests/
-│   └── test_environment.py     # 32 pytest cases across 7 bots × 4 stages
-├── results/                    # Generated win-rate tables & cluster plots (gitignored)
+│   └── test_environment.py        # 32 pytest cases across 7 bots × 4 stages
+├── results/                       # Generated win-rate tables & cluster plots (gitignored)
 └── requirements.txt
 ```
 
