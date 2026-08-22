@@ -66,7 +66,7 @@ Reinforce-Learning/
 ```bash
 git clone https://github.com/4ka-nsha/Reinforce-Learning.git
 cd Reinforce-Learning
-git checkout archit
+git checkout main
 py -m pip install -r requirements.txt
 ```
 

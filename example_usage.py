@@ -1,8 +1,6 @@
-"""
-Minimal usage example for Role 2 (profiler) / Role 3 (policy/PPO): this is
-the entire surface area you need to know about this module.
-
-Run from the repo root:  python example_usage.py
+"""Show the basic environment interaction loop.
+The example starts with rule-based opponents, then advances the curriculum
+and enables the fixed-strategy tier.
 """
 
 import numpy as np
@@ -11,13 +9,13 @@ from environments import AdaptiveOpponentEnv, Curriculum, OpponentPool
 
 
 def main():
-    curriculum = Curriculum()               # Kuhn Poker -> Leduc Poker -> Connect Four
+    curriculum = Curriculum()               # Load the default game ladder.
     opponent_pool = OpponentPool(seed=0)
 
     env = AdaptiveOpponentEnv(
         curriculum=curriculum,
         opponent_pool=opponent_pool,
-        opponent_tiers=("rule_based",),      # Phase 1: competency check vs Random/Greedy
+        opponent_tiers=("rule_based",),      # Use Random and Greedy bots.
         opponent_selection="curriculum",
         seed=0,
     )
@@ -29,7 +27,7 @@ def main():
     episode_return = 0.0
     while not done:
         legal_actions = np.flatnonzero(env.action_masks())
-        action = int(np.random.choice(legal_actions))   # <-- Role 2/3's policy goes here
+        action = int(np.random.choice(legal_actions))   # Replace with the agent policy.
 
         obs, reward, terminated, truncated, info = env.step(action)
         episode_return += reward
@@ -37,8 +35,7 @@ def main():
 
     print(f"episode finished, agent return={episode_return:+.1f}")
 
-    # Advance the game ladder and unlock the personality tier - e.g. once
-    # Phase 1's baseline PPO clears its competency bar against rule_based bots.
+    # Advance the ladder and enable fixed-strategy opponents.
     env.set_curriculum_stage("connect_four")
     env.set_opponent_tiers(("rule_based", "fixed_strategy"))
     obs, info = env.reset()

@@ -1,17 +1,6 @@
-"""
-Opponent sampling. Wraps the hand-scripted bots in models/baselines/ into a
-pool the environment can draw from, filtered by tier ("rule_based" /
-"fixed_strategy") so callers can independently control curriculum-game
-difficulty (curriculum.py) and opponent-personality difficulty - e.g. Phase 1
-trains against rule_based only, Phase 2 opens up fixed_strategy, and both
-can move forward on their own schedule.
-
-Each archetype gets exactly one persistent instance for the lifetime of the
-pool, not a fresh one per episode: bots like ExploitativeBot and PeriodicBot
-are designed to carry state *across* episodes (that's the whole point of
-"exploitative shifts after a loss"), while `OpponentBot.reset()` is called
-once per episode to clear only episode-local memory (e.g. MirrorBot's
-last-seen action).
+"""Manage the scripted opponents available to the environment.
+Bots are stored as persistent instances so selected strategies can retain
+cross-episode state while still resetting episode-local state.
 """
 
 from typing import Dict, Iterable, List, Optional
@@ -32,7 +21,7 @@ class OpponentPool:
         return list(self._instances.keys())
 
     def tiers(self, tiers: Optional[Iterable[str]] = None) -> List[str]:
-        """Names of bots belonging to any of the given tiers (None/empty = all)."""
+        """Return bot names matching any requested tier or name."""
         if not tiers:
             return self.names
         tier_set = set(tiers)

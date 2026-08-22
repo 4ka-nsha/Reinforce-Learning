@@ -21,7 +21,7 @@ def run_evaluation():
     curriculum.set_stage(args.stage)
     opponent_pool = OpponentPool(seed=100)
 
-    # Initialize policy and profiler models
+    # Initialize policy and profiler.
     input_size = curriculum.max_observation_dim + 32
     action_dim = curriculum.max_action_dim
     policy = PPOActorCritic(input_size=input_size, action_dim=action_dim, hidden_dim=128)
@@ -40,7 +40,7 @@ def run_evaluation():
     tracker = TrajectoryTracker(window_size=10, feature_dim=action_dim)
     visualizer = LatentVisualizer()
 
-    # Held-out testing bots
+    # Evaluate each registered bot archetype.
     bot_archetypes = ["random", "greedy", "aggressive", "defensive", "mirror", "periodic", "exploitative"]
     evaluation_results = {}
 
@@ -54,12 +54,12 @@ def run_evaluation():
         env = AdaptiveOpponentEnv(
             curriculum=curriculum,
             opponent_pool=opponent_pool,
-            opponent_tiers=None, # bypass filtering
+            opponent_tiers=None, # Disable tier filtering.
             opponent_selection="curriculum",
             seed=100
         )
         
-        # Override the pool instances to force-select only this bot
+        # Force this environment to select one bot.
         env.opponent_tiers = (bot_name,)
         
         returns = []
@@ -84,25 +84,25 @@ def run_evaluation():
                 tracker.update(action_one_hot)
                 history_tensor = tracker.get_history_tensor()
 
-                # Generate z_opp profile
+                # Generate the opponent profile.
                 with torch.no_grad():
                     z_opp = profiler(history_tensor).squeeze(0)
                     
-                # Record latent vector and bot label for cluster plotting
+                # Record the profile for clustering.
                 visualizer.record(z_opp, opponent_label=bot_name)
 
                 obs_t = torch.tensor(obs, dtype=torch.float32)
                 action_mask = env.action_masks()
                 mask_t = torch.tensor(action_mask, dtype=torch.bool)
 
-                # Feedforward pass through PPO Actor-Critic
+                # Evaluate the policy.
                 with torch.no_grad():
                     _, action_probs = policy(obs_t, z_opp, mask_t)
 
                 action_probs_np = action_probs.squeeze(0).numpy()
                 legal_actions = np.flatnonzero(action_mask)
                 
-                # Filter action probabilities over legal actions
+                # Renormalize over legal actions.
                 probs = action_probs_np[legal_actions]
                 if probs.sum() > 0:
                     probs = probs / probs.sum()
@@ -137,11 +137,11 @@ def run_evaluation():
         }
         print(f"Bot: {bot_name:<15} Win Rate: {win_rate:>5.1f}% | Wins: {wins:<3} Draws: {draws:<3} Losses: {losses:<3} | Mean Return: {mean_return:>+4.2f}")
 
-    # Plot strategy clustering
+    # Plot profile clusters.
     os.makedirs("results", exist_ok=True)
     plot_path = f"results/{args.stage}_opponent_strategy_clusters.png"
     print(f"\nGenerating clustering diagrams...")
-    # Will save t-SNE plot to file path
+    # Save the t-SNE plot.
     visualizer.plot_clusters(method="tsne", save_path=plot_path)
     print(f"Clusters saved successfully to {plot_path}")
 

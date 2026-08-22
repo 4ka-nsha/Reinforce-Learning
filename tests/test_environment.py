@@ -1,11 +1,6 @@
-"""
-Smoke tests for the Part 1 deliverable. Covers every registered bot against
-every curriculum stage, plus the standardization contracts the rest of the
-team is relying on (constant obs/action shapes, correct action masking,
-randomized seating). "A robust, bug-free world to train in" is the whole
-point of this role, so it gets a test suite rather than just a demo script.
-
-Run with:  pytest tests/
+"""Exercise every registered bot across every curriculum stage.
+The tests cover episode completion, fixed spaces, seating, tier filtering,
+and the environment's handling of illegal actions.
 """
 
 import warnings
@@ -49,7 +44,7 @@ def _play_episode(env, rng):
 
         action = int(rng.choice(legal))
         with warnings.catch_warnings():
-            warnings.simplefilter("error")  # any mask violation fails the test loudly
+            warnings.simplefilter("error")  # Treat mask violations as failures.
             obs, reward, terminated, truncated, info = env.step(action)
 
         assert obs.shape == env.observation_space.shape
@@ -64,8 +59,7 @@ def _play_episode(env, rng):
 @pytest.mark.parametrize("stage_name", STAGE_NAMES)
 @pytest.mark.parametrize("bot_name", list(ALL_BOTS))
 def test_bot_vs_stage_runs_cleanly(curriculum, stage_name, bot_name):
-    # A pool containing only this bot - sample() always returns it, no
-    # monkeypatching, and no risk of polluting a shared pool between tests.
+    # Use an isolated pool containing only the selected bot.
     solo_pool = OpponentPool(registry={bot_name: ALL_BOTS[bot_name]}, seed=0)
     env = AdaptiveOpponentEnv(curriculum=curriculum, opponent_pool=solo_pool, opponent_tiers=None, seed=0)
     env.set_curriculum_stage(stage_name)
@@ -104,7 +98,7 @@ def test_opponent_tier_filtering_is_respected(curriculum, full_pool):
 
 def test_illegal_action_degrades_instead_of_crashing(curriculum, full_pool):
     env = AdaptiveOpponentEnv(curriculum=curriculum, opponent_pool=full_pool, seed=0)
-    env.set_curriculum_stage("kuhn_poker")  # only actions 0/1 are ever valid here
+    env.set_curriculum_stage("kuhn_poker")  # Only actions 0 and 1 are valid.
     env.reset()
     with pytest.warns(UserWarning, match="illegal"):
-        env.step(6)  # never legal in kuhn_poker's 2-action space
+        env.step(6)  # Deliberately invalid action.
