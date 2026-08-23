@@ -23,12 +23,12 @@ def main():
     parser.add_argument("--lambda_aux", type=float, default=0.5, help="Weight of the profiler's auxiliary next-action loss")
     args = parser.parse_args()
 
-    # 1. Instantiate the curriculum and opponent pool
+    # Build the curriculum and opponent pool.
     curriculum = Curriculum()
     curriculum.set_stage(args.stage)
     opponent_pool = OpponentPool(seed=42)
 
-    # 2. Instantiate Gymnasium wrapper
+    # Create the environment.
     env = AdaptiveOpponentEnv(
         curriculum=curriculum,
         opponent_pool=opponent_pool,
@@ -37,13 +37,13 @@ def main():
         seed=42
     )
 
-    # 3. Initialize models and tracking utilities
+    # Initialize models and rollout utilities.
     input_size = curriculum.max_observation_dim + 32
     action_dim = curriculum.max_action_dim
     policy = PPOActorCritic(input_size=input_size, action_dim=action_dim, hidden_dim=128)
     profiler = OpponentProfiler(input_dim=action_dim, z_dim=32, hidden_dim=64)
     
-    # Combined optimizer to train both networks together
+    # Optimize policy and profiler jointly.
     optimizer = optim.Adam(list(policy.parameters()) + list(profiler.parameters()), lr=0.001)
     
     bfr = Memory()
@@ -58,13 +58,13 @@ def main():
     checkpoint_path = f"models/checkpoints/joint_{args.stage}_model.pt"
 
     for ep in range(args.episodes):
-        # Phase 3 self-play matchmaking check
+        # Select scripted or self-play opponents.
         opponent_type = snap.define_opponent(current_ppo_frac=ep / args.episodes)
         if opponent_type == "self_play":
             print(f"[Episode {ep+1}] Self-Play Matchmaking triggered.")
-            # Retrieve past policy checkpoint
+            # Retrieve a past policy snapshot.
             past_policy = snap.get_self_play_opponent((input_size, action_dim))
-            # Wrap as a bot
+            # Wrap the snapshot as an opponent bot.
             sp_bot = SelfPlayBot(
                 policy_model=past_policy,
                 profiler_model=profiler,
@@ -72,11 +72,11 @@ def main():
                 stage=env._stage,
                 seed=ep
             )
-            # Inject into opponent pool
+            # Register the self-play opponent.
             opponent_pool._instances["self_play_bot"] = sp_bot
             env.set_opponent_tiers(("self_play_bot",))
         else:
-            # Play against rule-based/fixed-strategy bot pool
+            # Use the scripted opponent pool.
             env.set_opponent_tiers(("rule_based", "fixed_strategy"))
 
         obs, info = env.reset()
@@ -85,7 +85,7 @@ def main():
         done = False
         
         while not done:
-            # Check opponent's action at previous step (if any) to update profile tracker
+            # Add the latest opponent action to the profile history.
             opp_action = info["last_opponent_action"]
             if opp_action is not None:
                 action_one_hot = np.zeros(action_dim, dtype=np.float32)
@@ -96,7 +96,7 @@ def main():
             tracker.update(action_one_hot)
             history_tensor = tracker.get_history_tensor()
 
-            # Generate latent profile vector (no gradient backprop during rollout step collection)
+            # Generate the current opponent profile.
             with torch.no_grad():
                 z_opp = profiler(history_tensor).squeeze(0) # shape: (32,)
 
@@ -104,23 +104,23 @@ def main():
             action_mask = env.action_masks()
             mask_t = torch.tensor(action_mask, dtype=torch.bool)
 
-            # Policy forward pass
+            # Evaluate the policy.
             with torch.no_grad():
                 value, action_probs = policy(obs_t, z_opp, mask_t)
 
-            # Sample action index
+            # Sample an action.
             probs_np = action_probs.squeeze(0).numpy()
             dist = torch.distributions.Categorical(action_probs.squeeze(0))
             action = dist.sample().item()
             action_prob = probs_np[action]
 
-            # Step the Gym environment
+            # Advance the environment.
             next_obs, reward, terminated, truncated, next_info = env.step(action)
             done = terminated or truncated
             episode_return += reward
             step_count += 1
 
-            # Store actual opponent action response (target for auxiliary loss classification)
+            # Store the next opponent action for auxiliary training.
             next_opp_action = next_info["last_opponent_action"]
             opp_target = next_opp_action if (next_opp_action is not None and not done) else -1
 
@@ -141,7 +141,7 @@ def main():
             info = next_info
 
             if len(bfr.states) >= args.rollout_size:
-                # Compute bootstrap value of the next state
+                # Bootstrap the value estimate for the next state.
                 obs_t = torch.tensor(obs, dtype=torch.float32)
                 with torch.no_grad():
                     next_val, _ = policy(obs_t, z_opp, mask_t)
@@ -159,12 +159,12 @@ def main():
                 )
                 bfr.clear()
                 
-                # Checkpoint snapshot for future self-play iterations
+                # Save a snapshot for future self-play.
                 snap.save_snap(policy)
 
         print(f"[Episode {ep+1}/{args.episodes}] opponent={info['opponent']:<12} return={episode_return:+.1f}")
 
-    # Save joint checkpoint on training completion
+    # Save the final joint checkpoint.
     save_joint_checkpoint(policy, profiler, checkpoint_path)
 
 

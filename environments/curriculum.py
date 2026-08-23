@@ -1,47 +1,7 @@
+"""Define the OpenSpiel game ladder used by training and evaluation.
+The curriculum caches loaded games and tracks the active stage.
+It also derives shared observation and action dimensions for the models.
 """
-Game-ladder curriculum: Kuhn Poker -> Leduc Poker -> Connect Four.
-
-Resolves the "Game Progression" half of Part 1 onto OpenSpiel only. The
-README/ideation doc also name PettingZoo, Gym, and Kaggle Environments as
-candidates, and describe an early ladder of Tic-Tac-Toe -> Connect Four ->
-Rock-Paper-Scissors -> "more complex games". Both of those have since been
-superseded: the project standardized on OpenSpiel as the single framework
-for the whole curriculum (it already covers every game type here, plus the
-PSRO/self-play tooling later phases need, so a second framework would only
-add API friction), and the ladder itself was narrowed to Kuhn/Leduc Poker
-for fast iteration plus Connect Four as the curriculum-complexity stage.
-
-This module owns *only* the game ladder. Which opponents are available at a
-given point in training is a separate, independent concern - see
-opponent_pool.py / models/baselines/bots.py - so the two can be advanced on
-different schedules by whichever training loop drives this environment.
-
-Scope note: all three stages are sequential (turn-based) games, so
-env_wrapper.py only implements sequential-turn handling. The "most complex
-target game" slot mentioned in the README is still an open decision; if that
-eventually lands on a simultaneous-move game (e.g. iterated Rock-Paper-
-Scissors), this module and env_wrapper.py's turn-resolution loop would both
-need a simultaneous-move code path added - deliberately not built now, to
-avoid adding real complexity for a game that hasn't been chosen yet.
-"""
-
-# from dataclasses import dataclass, field
-# import pyspiel
-
-# @dataclass(frozen=True)
-# class CurriculumStage:
-#     name: str
-#     game_name: str
-#     game_params: dict = field(default_factory=dict)
-
-# DEFAULT_STAGES=[
-#     CurriculumStage("tic_tac_toe"), 
-#     CurriculumStage("kuhn_poker", "kuhn_poker"),
-#     CurriculumStage("leduc_poker", "leduc_poker"),
-#     CurriculumStage("connect_four", "connect_four")
-# ]
-
-# class Curriculum:
 
 
 from dataclasses import dataclass, field
@@ -53,7 +13,7 @@ import pyspiel
 @dataclass(frozen=True)
 class CurriculumStage:
     name: str
-    game_name: str                     # pyspiel short name, e.g. "kuhn_poker"
+    game_name: str                     # OpenSpiel short name, e.g. "kuhn_poker"
     game_params: dict = field(default_factory=dict)
 
 
@@ -66,12 +26,7 @@ DEFAULT_STAGES: List[CurriculumStage] = [
 
 
 class Curriculum:
-    """Tracks the current game-ladder stage and hands out cached, loaded
-    OpenSpiel Game objects. Also derives the fixed observation/action
-    dimensions the rest of the pipeline standardizes on (see env_wrapper.py),
-    and precomputes, per game, whether to read observations off the
-    information-state tensor or the observation tensor.
-    """
+    """Track stages, cache OpenSpiel games, and derive shared tensor sizes."""
 
     def __init__(self, stages: Optional[List[CurriculumStage]] = None):
         self.stages: List[CurriculumStage] = list(stages) if stages else list(DEFAULT_STAGES)
@@ -106,10 +61,7 @@ class Curriculum:
         return self._games[game_name]
 
     def uses_information_state_tensor(self, game_name: str) -> bool:
-        """True if this game's observations should come from
-        information_state_tensor (bet-history aware - matters for the poker
-        games) rather than observation_tensor (Connect Four's only option,
-        since it doesn't implement an information-state tensor at all)."""
+        """Return whether the game exposes an information-state tensor."""
         return self._uses_info_state[game_name]
 
     def _observation_dim(self, game_name: str) -> int:
@@ -141,17 +93,12 @@ class Curriculum:
         return self.stage
 
     def advance(self) -> CurriculumStage:
-        """Move to the next stage, if any. Stays on the final (hardest) stage
-        once reached rather than wrapping. Advancing is a training-loop
-        decision (e.g. a win-rate threshold, or the profiler's t-SNE
-        cluster-separation exit criterion) - this class only tracks *which*
-        stage is active, not *when* to move on."""
+        """Advance one stage, stopping at the final stage."""
         self._stage_idx = min(self._stage_idx + 1, len(self.stages) - 1)
         return self.stage
 
     def sample_stage(self, rng) -> CurriculumStage:
-        """Pick a stage uniformly at random, independent of `stage_index`.
-        Backs the environment's 'random' opponent-selection mode."""
+        """Sample a stage uniformly at random."""
         idx = int(rng.integers(0, len(self.stages)))
         return self.stages[idx]
 

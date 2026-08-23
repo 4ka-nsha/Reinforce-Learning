@@ -12,7 +12,7 @@ class Memory:
     rewards: list[Any] = field(default_factory=list)
     game_ended: list[Any] = field(default_factory=list)
     
-    # Fields required for Joint Profiler training
+    # Profiler training fields.
     history_tensors: list[Any] = field(default_factory=list)
     opponent_actions_taken: list[Any] = field(default_factory=list)
     

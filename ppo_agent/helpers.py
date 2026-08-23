@@ -1,13 +1,11 @@
+"""Save and restore combined policy and profiler checkpoints."""
+
 import torch
 import os
 from typing import Optional
 
 def save_joint_checkpoint(policy: torch.nn.Module, profiler: Optional[torch.nn.Module], path: str) -> None:
-    """
-    Saves a single combined checkpoint containing states of both the 
-    PPO policy network and the Opponent Profiler.
-    """
-    # Ensure directory exists
+    """Save policy and profiler weights in one checkpoint."""
     dir_name = os.path.dirname(path)
     if dir_name:
         os.makedirs(dir_name, exist_ok=True)
@@ -21,9 +19,7 @@ def save_joint_checkpoint(policy: torch.nn.Module, profiler: Optional[torch.nn.M
 
 
 def load_joint_checkpoint(policy: torch.nn.Module, profiler: Optional[torch.nn.Module], path: str) -> None:
-    """
-    Loads both PPO policy and Opponent Profiler weights from a combined checkpoint file.
-    """
+    """Load policy and profiler weights from a joint checkpoint."""
     if not os.path.exists(path):
         raise FileNotFoundError(f"Checkpoint file not found: {path}")
         

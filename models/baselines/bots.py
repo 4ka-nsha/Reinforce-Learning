@@ -1,27 +1,6 @@
-"""
-Hand-scripted opponent bots.
-
-Two tiers, matching the training-strategy docs:
-
-  RULE_BASED      - simple, cheap opponents used to sanity-check the agent's
-                     basic competency before anything harder (Phase 1).
-  FIXED_STRATEGY  - distinct, recognizable "personalities" the opponent
-                     profiler is meant to learn to tell apart (Phase 2). Each
-                     one deliberately embodies one of the behavioural patterns
-                     called out in the project README's Motivation section.
-
-    RandomBot        -> rule_based        uniform random baseline
-    GreedyBot        -> rule_based        take a free win, else random
-    AggressiveBot    -> fixed_strategy    "over-aggressive opening sequences"
-    DefensiveBot     -> fixed_strategy    blocks threats, plays it safe
-    MirrorBot        -> fixed_strategy    "reactive tit-for-tat patterns"
-    PeriodicBot      -> fixed_strategy    "periodic structural trap placements"
-    ExploitativeBot  -> fixed_strategy    "exploitative shifts after a loss"
-
-Every act() fetches state.legal_actions() exactly once and threads it into
-the helper calls that need it, and every random pick goes through
-fast_choice()/fast_weighted_choice() rather than rng.choice() - see
-base_bot.py for why (both are measured, not stylistic, wins).
+"""Implement the repository's scripted opponent personalities.
+Rule-based bots provide simple competency baselines.
+Fixed-strategy bots expose recognizable behaviors for opponent profiling.
 """
 
 from typing import Optional
@@ -42,7 +21,7 @@ from .base_bot import (
 
 
 class RandomBot(OpponentBot):
-    """Uniform-random legal action. The floor every other bot should beat."""
+    """Choose a uniformly random legal action."""
 
     name = "random"
     archetype = RULE_BASED
@@ -55,9 +34,7 @@ class RandomBot(OpponentBot):
 
 
 class GreedyBot(OpponentBot):
-    """Takes an immediate win when one is on the table, otherwise plays
-    randomly. Deliberately simple 'hardcoded logic' - a slightly-better-
-    than-random bar for the Phase 1 competency check."""
+    """Take an immediate win; otherwise choose randomly."""
 
     name = "greedy"
     archetype = RULE_BASED
@@ -74,15 +51,14 @@ class GreedyBot(OpponentBot):
 
 
 class AggressiveBot(OpponentBot):
-    """Over-aggressive opener: grabs free wins, otherwise leans hard into
-    bet/raise/call in poker or center-column play in Connect Four."""
+    """Prefer aggressive actions and center columns after taking free wins."""
 
     name = "aggressive"
     archetype = FIXED_STRATEGY
 
     def __init__(self, seed: Optional[int] = None, aggression: float = 0.85):
         self._rng = np.random.default_rng(seed)
-        self.aggression = aggression  # P(taking the most aggressive legal action)
+        self.aggression = aggression  # Probability of choosing an aggressive action.
 
     def act(self, state, player_id):
         legal = state.legal_actions()
@@ -101,9 +77,7 @@ class AggressiveBot(OpponentBot):
 
 
 class DefensiveBot(OpponentBot):
-    """Purely defensive: takes a free win if handed one, otherwise blocks the
-    opponent's immediate threats (2-ply lookahead) or leans on fold/pass/
-    check in poker."""
+    """Take free wins, block immediate threats, and prefer safe actions."""
 
     name = "defensive"
     archetype = FIXED_STRATEGY
@@ -130,8 +104,7 @@ class DefensiveBot(OpponentBot):
 
 
 class MirrorBot(OpponentBot):
-    """Tit-for-tat: replays the opponent's most recent action whenever it's
-    still legal, otherwise plays randomly."""
+    """Replay the opponent's latest action when legal; otherwise choose randomly."""
 
     name = "mirror"
     archetype = FIXED_STRATEGY
@@ -148,12 +121,7 @@ class MirrorBot(OpponentBot):
 
 
 class PeriodicBot(OpponentBot):
-    """Cycles through a fixed style pattern independent of what's actually
-    happening in the game - a deterministic 'structural trap' the profiler
-    should learn to recognize as a period-N pattern rather than a reactive
-    one. The cycle position is persistent across episodes (NOT cleared by
-    reset()), so the periodicity is visible across a whole run of matches
-    against this bot rather than resetting every hand."""
+    """Cycle through a fixed action-style pattern across episodes."""
 
     name = "periodic"
     archetype = FIXED_STRATEGY
@@ -183,10 +151,7 @@ class PeriodicBot(OpponentBot):
 
 
 class ExploitativeBot(OpponentBot):
-    """Starts aggressive; flips its whole sub-strategy to defensive the
-    moment it loses an episode, and flips back the moment defensive loses
-    too - i.e. it exploits whatever isn't currently losing. Mode is
-    persistent across episodes by design (NOT cleared by reset())."""
+    """Switch between aggressive and defensive modes after losses."""
 
     name = "exploitative"
     archetype = FIXED_STRATEGY

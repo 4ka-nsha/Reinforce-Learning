@@ -1,3 +1,7 @@
+"""Wrap a saved PPO policy so it can act as a training opponent.
+The bot optionally profiles the learner's recent actions before choosing.
+"""
+
 import torch
 import numpy as np
 from typing import Optional
@@ -6,10 +10,7 @@ from models.baselines.base_bot import OpponentBot, last_opponent_action
 from models.profiler.tracker import TrajectoryTracker
 
 class SelfPlayBot(OpponentBot):
-    """
-    Opponent bot that wraps a PPOActorCritic policy checkpoint to allow
-    self-play training. Optionally profiles the main agent's behavior.
-    """
+    """Use a PPO checkpoint as a self-play opponent."""
     name = "self_play_bot"
     
     def __init__(
@@ -27,7 +28,7 @@ class SelfPlayBot(OpponentBot):
         self.stage = stage
         self._rng = np.random.default_rng(seed)
         
-        # Instantiate an internal tracker to profile the training agent
+        # Track the training agent's recent actions when a profiler is provided.
         if profiler_model is not None and curriculum is not None:
             self.tracker = TrajectoryTracker(window_size=10, feature_dim=curriculum.max_action_dim)
         else:
@@ -41,7 +42,7 @@ class SelfPlayBot(OpponentBot):
         self._last_agent_action = None
 
     def act(self, state, player_id: int) -> int:
-        # 1. Update the tracker with the training agent's last action
+        # Update the tracker with the training agent's latest action.
         if self.tracker is not None:
             agent_action = last_opponent_action(state, player_id)
             if agent_action is not None:
@@ -49,7 +50,7 @@ class SelfPlayBot(OpponentBot):
                 action_one_hot[agent_action] = 1.0
                 self.tracker.update(action_one_hot)
 
-        # 2. Extract state representation and zero-pad to max_observation_dim
+        # Pad the state representation to the shared observation size.
         game_name = self.stage.game_name
         if self.curriculum.uses_information_state_tensor(game_name):
             raw_obs = state.information_state_tensor(player_id)
@@ -60,7 +61,7 @@ class SelfPlayBot(OpponentBot):
         obs[:len(raw_obs)] = raw_obs
         obs_tensor = torch.tensor(obs, dtype=torch.float32)
 
-        # 3. Generate the opponent's latent representation
+        # Profile the training agent's recent behavior.
         if self.tracker is not None and self.profiler_model is not None:
             history_tensor = self.tracker.get_history_tensor()
             with torch.no_grad():
@@ -68,28 +69,28 @@ class SelfPlayBot(OpponentBot):
         else:
             z_opp = torch.zeros(32, dtype=torch.float32)
 
-        # 4. Form action mask
+        # Mask illegal actions.
         mask = np.zeros(self.curriculum.max_action_dim, dtype=bool)
         base_mask = state.legal_actions_mask(player_id)
         mask[:len(base_mask)] = base_mask
         mask_tensor = torch.tensor(mask, dtype=torch.bool)
 
-        # 5. Feed to the policy model
+        # Sample from the checkpointed policy.
         with torch.no_grad():
             _, action_probs = self.policy_model(obs_tensor, z_opp, mask_tensor)
             
-        # 6. Sample from legal actions
+        # Renormalize over legal actions.
         action_probs = action_probs.squeeze(0).numpy()
         legal_actions = state.legal_actions(player_id)
         
-        # Filter action probabilities over legal actions
+        # Keep probabilities for actions supported by this game.
         probs = action_probs[:len(base_mask)]
         legal_probs = probs[legal_actions]
         
         if legal_probs.sum() > 0:
             legal_probs = legal_probs / legal_probs.sum()
         else:
-            # Fallback uniform distribution
+            # Fall back to a uniform legal-action distribution.
             legal_probs = np.ones(len(legal_actions)) / len(legal_actions)
             
         chosen_action = int(self._rng.choice(legal_actions, p=legal_probs))
